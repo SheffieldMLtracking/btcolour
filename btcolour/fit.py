@@ -12,7 +12,12 @@ def fit(file_path, initial=None, buffer=7, indexes=None, show=False):
     guesses = []
 
     for tag in ex_tags:
-        guesses.append(fit_from_img(tag, initial))
+        guess = fit_from_img(tag, initial)
+        guesses.append(guess)
+        if show == True:
+            fig,axs = plt.subplots(2)
+            axs[0].imshow(tag)
+            axs[1].imshow(reconstruct(guess,50,buffer))
     
     return guesses
 
@@ -60,8 +65,8 @@ def image_loader(file_path):
     Requires absolute path
     '''
     img_path = file_path.split("/")
-    img_path.pop(-3)
-    img_path = "".join([i+"\\" for i in img_path])[:-5] + 'np'
+    img_path.pop(-2)
+    img_path = "".join([i+"/" for i in img_path])[:-5] + 'np'
     
     with open(img_path,'rb') as pick:
         image_arr = np.array(pk.load(pick)['img'])
@@ -87,10 +92,6 @@ def get_tags(img, tags, buffer, indexes=None, show=False):
         x = t[0]
         y = t[1]
         tag = img[y-buffer:y+buffer,x-buffer:x+buffer]
-        if show:
-            plt.figure(figsize=(8,8))
-            plt.imshow(tag)
-            plt.title(i)
         extracted_tags.append(tag)
         
     return np.array(extracted_tags)
@@ -145,3 +146,26 @@ def disc_func(coords, x0, y0, R, A0, A1, A2, B0, B1, B2):
     blue = A2 * (r <= R) + B2
     
     return np.array([red,green,blue]).ravel()
+
+def reconsruct_gauss(coords, size, x0, y0, spread, A0, A1, A2, B0, B1, B2):
+    x, y = coords
+    x = x / size
+    y = y / size
+    gauss = np.exp(-((x-x0)**2 + (y - y0)**2)/((spread**2)*2))
+    red = A0*gauss + B0
+    green = A1*gauss + B1
+    blue = A2*gauss + B2
+
+    for col in [red,green,blue]:
+        col[col>255] = 255
+
+    return np.array([red,green,blue])
+
+def reconstruct(guess, size, buffer_size):
+    x,y = np.meshgrid(np.arange(size*2),np.arange(size*2))
+    x -= size
+    y -= size
+    coords = np.c_[x.flatten(),y.flatten()].T
+    scale = size / buffer_size
+    rav_image = reconsruct_gauss(coords,scale,*guess).T
+    return(rav_image.reshape(size*2,size*2,3).astype(np.uint16))
