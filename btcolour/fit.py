@@ -5,8 +5,16 @@ import cv2
 import matplotlib.pyplot as plt
 from scipy.optimize import curve_fit
 
-def fit():
-    return None
+def fit(file_path, initial=None, buffer=7, indexes=None, show=False):
+    img, tags = image_loader(file_path)
+    ex_tags = get_tags(img,tags,buffer,indexes,show)
+
+    guesses = []
+
+    for tag in ex_tags:
+        guesses.append(fit_from_img(tag, initial))
+    
+    return guesses
 
 def fit_from_img(img, initial=None):
     r,g,b = extract_channels(img)
