@@ -4,6 +4,7 @@ import json
 import cv2
 import matplotlib.pyplot as plt
 from scipy.optimize import curve_fit
+import os.path
 
 def fit(file_path, initial=None, buffer=7, indexes=None, show=False):
     img, tags = image_loader(file_path)
@@ -61,12 +62,15 @@ def extract_channels(img):
 
 def image_loader(file_path):
     '''
-    Returns image matrix and tag positions array taken from file_path
+    Returns image matrix and tag positions array taken from file_path of a json
     Requires absolute path
     '''
-    img_path = file_path.split("/")
-    img_path.pop(-2)
-    img_path = "".join([i+"/" for i in img_path])[:-5] + 'np'
+    parents, img_name = os.path.split(file_path)
+    img_name = img_name[:-4] + 'np'
+    parents, camID = os.path.split(parents)
+    parents, _ = os.path.split(parents)
+    img_path = os.path.join(parents, camID)
+    img_path = os.path.join(img_path,img_name)
     
     with open(img_path,'rb') as pick:
         image_arr = np.array(pk.load(pick)['img'])
