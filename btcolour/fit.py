@@ -4,25 +4,35 @@ import json
 import cv2
 import matplotlib.pyplot as plt
 from scipy.optimize import curve_fit
+from btcolour.classify import *
 import os.path
+from scipy.stats import multivariate_normal
 
-def fit(file_path, initial=None, buffer=7, indexes=None, show=False):
+def fit(file_path, initial=None, buffer=7, indexes=None, show=False, function="gauss"):
+    """
+    :param file_path: absolute path to the json file
+    :param initial: initial guess for the fit function
+    :param buffer: pixels in each direction around the tag location
+    :param indexes: indexes of tags to look at, if not passes, all are processed
+    :param show: produces images of the tags and the fitted function
+    """
     img, tags = image_loader(file_path)
     ex_tags = get_tags(img,tags,buffer,indexes,show)
 
     guesses = []
 
     for tag in ex_tags:
-        guess = fit_from_img(tag, initial)
+        guess = fit_from_img(tag, initial, function=function)
         guesses.append(guess)
         if show == True:
-            fig,axs = plt.subplots(2)
+            fig, axs = plt.subplots(2)
             axs[0].imshow(tag)
-            axs[1].imshow(reconstruct(guess,50,buffer))
+            axs[1].imshow(reconstruct(guess,50,buffer,function))
+            axs[1].scatter(40,40,color=colour_from_guess(guess),s=600)
     
     return guesses
 
-def fit_from_img(img, initial=None):
+def fit_from_img(img, initial=None, function="gauss"):
     r,g,b = extract_channels(img)
 
     x_data, y_data = np.meshgrid(np.arange(np.shape(r)[1]),np.arange(np.shape(r)[0]))
@@ -34,13 +44,20 @@ def fit_from_img(img, initial=None):
     y_data -= np.shape(r)[0]//2
     coords = np.c_[x_data.flatten(),y_data.flatten()].T
 
+    if function == "gauss":
+        initial_guess = np.array([0,0,1,50,50,50,50,50,50])
+        func = gauss
+        
+    elif function == "2d":
+        initial_guess = np.array([0,0,1,50,50,50,50,50,50,1,0])
+        func = gauss_2d
+        
     if initial != None:
         initial_guess = initial
-    else:
-        initial_guess = np.array([0,0,1,50,50,50,50,50,50])
+       
     #initial_guess_2d = np.array([0,0,1,1,50,50,0,50,50,50,50])
     
-    guess, guess_cov = curve_fit(gauss,coords,height_data,p0=initial_guess)
+    guess, guess_cov = curve_fit(func,coords,height_data,p0=initial_guess)
     
     return guess
 
@@ -123,24 +140,22 @@ def gauss(coords, x0, y0, spread, A0, A1, A2, B0, B1, B2):
 
     return np.array([red,green,blue]).ravel()
 
-def gauss_2d(coords, x0, y0, sx, sy, theta, A0, A1, A2, B0, B1, B2):
+def gauss_2d(coords, x0, y0, sx, A0, A1, A2, B0, B1, B2, sy, theta):
     """
     Doesn't work properly
     """
     x, y = coords
-    a=np.cos(theta)*x -np.sin(theta)*y
-    b=np.sin(theta)*x +np.cos(theta)*y
-    a0=np.cos(theta)*x0 -np.sin(theta)*y0
-    b0=np.sin(theta)*x0 +np.cos(theta)*y0
+    xo = float(x0)
+    yo = float(y0)   
+    a = (np.cos(theta)**2)/(2*sx**2) + (np.sin(theta)**2)/(2*sy**2)
+    b = -(np.sin(2*theta))/(4*sx**2) + (np.sin(2*theta))/(4*sy**2)
+    c = (np.sin(theta)**2)/(2*sx**2) + (np.cos(theta)**2)/(2*sy**2)
+    gauss = np.exp( - (a*((x-xo)**2) + 2*b*(x-xo)*(y-yo) + c*((y-yo)**2)))
+    r = (B0 + A0*gauss).ravel()
+    g = (B1 + A1*gauss).ravel()
+    b = (B2 + A2*gauss).ravel()
+    return np.array([r,g,b]).ravel()
     
-    gauss = np.exp(-(((a-a0)**2)/(2*(sx**2)) + ((b-b0)**2) /(2*(sy**2))))
-    
-    red = A0*gauss + B0
-    green = A1*gauss + B1
-    blue = A2*gauss + B2
-    
-    return np.array([red,green,blue]).ravel()
-
 def disc_func(coords, x0, y0, R, A0, A1, A2, B0, B1, B2):
     x, y = coords
     
@@ -165,11 +180,38 @@ def reconsruct_gauss(coords, size, x0, y0, spread, A0, A1, A2, B0, B1, B2):
 
     return np.array([red,green,blue])
 
-def reconstruct(guess, size, buffer_size):
+def reconstruct_2d(coords,size, x0, y0, sx, A0, A1, A2, B0, B1, B2, sy, theta):
+    """
+    Doesn't work properly
+    """
+    x, y = coords
+    x = x / size
+    y = y / size
+    
+    xo = float(x0)
+    yo = float(y0)   
+    a = (np.cos(theta)**2)/(2*sx**2) + (np.sin(theta)**2)/(2*sy**2)
+    b = -(np.sin(2*theta))/(4*sx**2) + (np.sin(2*theta))/(4*sy**2)
+    c = (np.sin(theta)**2)/(2*sx**2) + (np.cos(theta)**2)/(2*sy**2)
+    gauss = np.exp( - (a*((x-xo)**2) + 2*b*(x-xo)*(y-yo) + c*((y-yo)**2)))
+    r = (B0 + A0*gauss)
+    g = (B1 + A1*gauss)
+    b = (B2 + A2*gauss)
+    
+    return np.array([r,g,b])
+
+def reconstruct(guess, size, buffer_size, function):
     x,y = np.meshgrid(np.arange(size*2),np.arange(size*2))
     x -= size
     y -= size
     coords = np.c_[x.flatten(),y.flatten()].T
     scale = size / buffer_size
-    rav_image = reconsruct_gauss(coords,scale,*guess).T
-    return(rav_image.reshape(size*2,size*2,3).astype(np.uint16))
+    if function == "gauss":
+        rav_image = reconsruct_gauss(coords,scale,*guess).T
+        rav_image = rav_image.reshape(size*2,size*2,3).astype(np.uint16)
+    elif function == "2d":
+        rav_image = reconstruct_2d(coords,scale,*guess).T
+        rav_image = rav_image.reshape(size*2,size*2,3).astype(np.uint16)
+        print(np.shape(rav_image))
+    
+    return rav_image
