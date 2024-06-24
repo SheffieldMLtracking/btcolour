@@ -6,7 +6,8 @@ import matplotlib.pyplot as plt
 from scipy.optimize import curve_fit
 from btcolour.classify import *
 import os.path
-from scipy.stats import multivariate_normal
+
+import btcolour.classify
 
 def fit(file_path, initial=None, buffer=7, indexes=None, show=False, function="gauss"):
     """
@@ -20,16 +21,22 @@ def fit(file_path, initial=None, buffer=7, indexes=None, show=False, function="g
     ex_tags = get_tags(img,tags,buffer,indexes,show)
 
     guesses = []
+    count = 0
+    fig, axs = plt.subplots(3,4)
 
     for tag in ex_tags:
         guess = fit_from_img(tag, initial, function=function)
         guesses.append(guess)
         if show == True:
-            fig, axs = plt.subplots(2)
-            axs[0].imshow(tag)
-            axs[1].imshow(reconstruct(guess,50,buffer,function))
-            axs[1].scatter(40,40,color=colour_from_guess(guess),s=600)
-    
+            if count > 11:
+                fig, axs = plt.subplots(3,4)
+                count = 0
+            axs[count//4,count%4].imshow(tag)
+            count += 1
+            axs[count//4,count%4].imshow(reconstruct(guess,50,buffer,function))
+            axs[count//4,count%4].scatter(40,40,color=btcolour.classify.colour_from_guess(guess),s=600)
+            count+=1
+ 
     return guesses
 
 def fit_from_img(img, initial=None, function="gauss"):
@@ -56,9 +63,12 @@ def fit_from_img(img, initial=None, function="gauss"):
         initial_guess = initial
        
     #initial_guess_2d = np.array([0,0,1,1,50,50,0,50,50,50,50])
-    
-    guess, guess_cov = curve_fit(func,coords,height_data,p0=initial_guess)
-    
+
+    try:
+        guess, guess_cov = curve_fit(func,coords,height_data,p0=initial_guess)
+    except ValueError:
+        raise RuntimeError("Cannot be processed")
+
     return guess
 
 def debay(img_mat):
@@ -84,11 +94,16 @@ def image_loader(file_path):
     '''
     parents, img_name = os.path.split(file_path)
     img_name = img_name[:-4] + 'np'
-    parents, camID = os.path.split(parents)
+ 
     parents, _ = os.path.split(parents)
+
+    parents, camID = os.path.split(parents)
+
+
     img_path = os.path.join(parents, camID)
+
     img_path = os.path.join(img_path,img_name)
-    
+
     with open(img_path,'rb') as pick:
         image_arr = np.array(pk.load(pick)['img'])
         
@@ -141,9 +156,6 @@ def gauss(coords, x0, y0, spread, A0, A1, A2, B0, B1, B2):
     return np.array([red,green,blue]).ravel()
 
 def gauss_2d(coords, x0, y0, sx, A0, A1, A2, B0, B1, B2, sy, theta):
-    """
-    Doesn't work properly
-    """
     x, y = coords
     xo = float(x0)
     yo = float(y0)   
@@ -181,9 +193,6 @@ def reconsruct_gauss(coords, size, x0, y0, spread, A0, A1, A2, B0, B1, B2):
     return np.array([red,green,blue])
 
 def reconstruct_2d(coords,size, x0, y0, sx, A0, A1, A2, B0, B1, B2, sy, theta):
-    """
-    Doesn't work properly
-    """
     x, y = coords
     x = x / size
     y = y / size
@@ -197,6 +206,9 @@ def reconstruct_2d(coords,size, x0, y0, sx, A0, A1, A2, B0, B1, B2, sy, theta):
     r = (B0 + A0*gauss)
     g = (B1 + A1*gauss)
     b = (B2 + A2*gauss)
+
+    for col in [r,g,b]:
+        col[col>255] = 255
     
     return np.array([r,g,b])
 
@@ -212,6 +224,6 @@ def reconstruct(guess, size, buffer_size, function):
     elif function == "2d":
         rav_image = reconstruct_2d(coords,scale,*guess).T
         rav_image = rav_image.reshape(size*2,size*2,3).astype(np.uint16)
-        print(np.shape(rav_image))
+
     
     return rav_image
