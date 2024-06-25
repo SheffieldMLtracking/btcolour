@@ -150,10 +150,11 @@ def plot_guesses(guesses, indexes,ax=None):
 
 def best_tag_groups(guesses, indexes):
     stds = []
+    means = []
 
     for i in range(40):
         _, _, rgbs = ext_indexes(guesses,indexes,[i])
         stds.append(np.std(rgbs))
+        means.append(np.mean(rgbs,axis=0))
 
-    return np.argsort(np.array(stds)), stds
- 
+    return np.argsort(np.array(stds)), stds, means
