@@ -56,7 +56,7 @@ def fit_from_img(img, initial=None, function="gauss"):
         func = gauss
         
     elif function == "2d":
-        initial_guess = np.array([0,0,1,50,50,50,50,50,50,1,0])
+        initial_guess = np.array([0,0,1,50,50,50,50,50,50,1,0,255])
         func = gauss_2d
         
     if initial != None:
@@ -155,7 +155,7 @@ def gauss(coords, x0, y0, spread, A0, A1, A2, B0, B1, B2):
 
     return np.array([red,green,blue]).ravel()
 
-def gauss_2d(coords, x0, y0, sx, A0, A1, A2, B0, B1, B2, sy, theta):
+def gauss_2d(coords, x0, y0, sx, A0, A1, A2, B0, B1, B2, sy, theta, cutoff):
     x, y = coords
     xo = float(x0)
     yo = float(y0)   
@@ -166,6 +166,9 @@ def gauss_2d(coords, x0, y0, sx, A0, A1, A2, B0, B1, B2, sy, theta):
     r = (B0 + A0*gauss).ravel()
     g = (B1 + A1*gauss).ravel()
     b = (B2 + A2*gauss).ravel()
+    for col in [r,g,b]:
+        col[col>cutoff] = cutoff
+
     return np.array([r,g,b]).ravel()
     
 def disc_func(coords, x0, y0, R, A0, A1, A2, B0, B1, B2):
@@ -192,7 +195,7 @@ def reconsruct_gauss(coords, size, x0, y0, spread, A0, A1, A2, B0, B1, B2):
 
     return np.array([red,green,blue])
 
-def reconstruct_2d(coords,size, x0, y0, sx, A0, A1, A2, B0, B1, B2, sy, theta):
+def reconstruct_2d(coords,size, x0, y0, sx, A0, A1, A2, B0, B1, B2, sy, theta, cutoff):
     x, y = coords
     x = x / size
     y = y / size
@@ -208,7 +211,7 @@ def reconstruct_2d(coords,size, x0, y0, sx, A0, A1, A2, B0, B1, B2, sy, theta):
     b = (B2 + A2*gauss)
 
     for col in [r,g,b]:
-        col[col>255] = 255
+        col[col>cutoff] = cutoff
     
     return np.array([r,g,b])
 
