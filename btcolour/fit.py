@@ -176,6 +176,7 @@ def gauss_2d(coords, x0, y0, sx, A0, A1, A2, B0, B1, B2, sy, theta, cutoff):
     b = (B2 + A2*gauss).ravel()
     for col in [r,g,b]:
         col[col>cutoff] = cutoff
+        col[col<0] = 0
 
     return np.array([r,g,b]).ravel()
     
@@ -220,6 +221,7 @@ def reconstruct_2d(coords,size, x0, y0, sx, A0, A1, A2, B0, B1, B2, sy, theta, c
 
     for col in [r,g,b]:
         col[col>cutoff] = cutoff
+        col[col<0] = 0
     
     return np.array([r,g,b])
 

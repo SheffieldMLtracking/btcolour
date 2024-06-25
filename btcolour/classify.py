@@ -137,9 +137,7 @@ def plot_guesses(guesses, indexes,ax=None):
         ax.set_xlabel("R")
         ax.set_ylabel("G")
         ax.set_zlabel("B")
-        ax.set_xlim(0,0.8)
-        ax.set_ylim(0.1,0.4)
-        ax.set_zlim(0,0.71)
+
 
     for guess, index in zip(guesses, indexes):
         rgbs = [[i[3],i[4],i[5]] for i in guess]
@@ -147,5 +145,15 @@ def plot_guesses(guesses, indexes,ax=None):
    
         for label, rgb in zip(index,rgbs):
             (x,y,z) = rgb
-            ax.text(x+0.01,y+0.01,z+0.01,label)
+            ax.scatter(x,y,z,color=(x,y,z),s=100)
+            #ax.text(x+0.01,y+0.01,z+0.01,label)
+
+def best_tag_groups(guesses, indexes):
+    stds = []
+
+    for i in range(40):
+        _, _, rgbs = ext_indexes(guesses,indexes,[i])
+        stds.append(np.std(rgbs))
+
+    return np.argsort(np.array(stds)), stds
  
