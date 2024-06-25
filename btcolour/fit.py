@@ -46,6 +46,10 @@ def fit_from_img(img, initial=None, function="gauss"):
 
     channel_data = np.stack([r.flatten(),g.flatten(),b.flatten()]).ravel()
     height_data = channel_data#.flatten()
+    max_brightness = np.max(height_data)
+    if max_brightness < 255:
+        max_brightness = max_brightness+50
+
 
     x_data -= np.shape(r)[1]//2
     y_data -= np.shape(r)[0]//2
@@ -53,10 +57,14 @@ def fit_from_img(img, initial=None, function="gauss"):
 
     if function == "gauss":
         initial_guess = np.array([0,0,1,50,50,50,50,50,50])
+        lower_bound = np.array([-10,-10,0.1,0,0,0,0,0,0])
+        upper_bound = np.array([10,10,10,10000,10000,10000,200,200,200])
         func = gauss
         
     elif function == "2d":
-        initial_guess = np.array([0,0,1,50,50,50,50,50,50,1,0,255])
+        initial_guess = np.array([0,0,1,50,50,50,50,50,50,1,0,max_brightness-5])
+        lower_bound = np.array([-10,-10,0.1,0,0,0,0,0,0,0.1,0,0])
+        upper_bound = np.array([10,10,10,10000,10000,10000,200,200,200,10,10,max_brightness])
         func = gauss_2d
         
     if initial != None:
@@ -65,7 +73,7 @@ def fit_from_img(img, initial=None, function="gauss"):
     #initial_guess_2d = np.array([0,0,1,1,50,50,0,50,50,50,50])
 
     try:
-        guess, guess_cov = curve_fit(func,coords,height_data,p0=initial_guess)
+        guess, guess_cov = curve_fit(func,coords,height_data,p0=initial_guess,bounds=(lower_bound,upper_bound))
     except ValueError:
         raise RuntimeError("Cannot be processed")
 

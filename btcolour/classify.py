@@ -39,23 +39,19 @@ def to_json_list(img_path_list):
         jsons.append(json_name)
     return jsons
 
-def cluster(image_list,k,tag_indexes,function="2d"):
-    guesses, indexes, points = extract_tags_from(image_list,function=function,idx_to_see=tag_indexes)
+def cluster(guesses,tag_i,rgbs,k):
+
     k_means = KMeans(k)
-    k_means.fit(points)
+    k_means.fit(rgbs)
 
     fig = plt.figure(figsize=(12,12))
     ax = plt.axes(projection='3d')
     ax.set_xlabel("R")
     ax.set_ylabel("G")
     ax.set_zlabel("B")
-    ax.set_xlim(0,0.8)
-    ax.set_ylim(0.1,0.4)
-    ax.set_zlim(0,0.71)
+    plot_guesses(guesses,tag_i,ax=ax)
 
-    plot_guesses(guesses,indexes,tag_indexes,ax=ax)
-
-    ax.scatter(points[:,0],points[:,1],points[:,2],c=k_means.labels_,s=300)
+    ax.scatter(rgbs[:,0],rgbs[:,1],rgbs[:,2],c=k_means.labels_,s=300)
 
 
 def extract_tags_from(image_list,function="2d",show=False, show_rgb=False, idx_to_see=None):
@@ -74,7 +70,7 @@ def extract_tags_from(image_list,function="2d",show=False, show_rgb=False, idx_t
         for i, tag in enumerate(tags):
             found = False
             guess = None
-            buffer = 6
+            buffer = 4
             while not found and buffer < 20:
                 try:
                     guess = btcolour.fit.fit_from_img(tag,function=function)
@@ -86,7 +82,7 @@ def extract_tags_from(image_list,function="2d",show=False, show_rgb=False, idx_t
                     buffer += 1
                     tag = btcolour.fit.get_tags(img_raw,tag_list,buffer,indexes=[i])
             if not found:
-                print("tag %s wasn't fitted in image %s", {i, os.path.split(file)[1]})
+                #print("tag %s wasn't fitted in image %s", {i, os.path.split(file)[1]})
                 #image_guesses.append(None)
                 #image_indexes.append(i)
                 if i not in not_found: not_found.append(i)
@@ -108,17 +104,21 @@ def extract_tags_from(image_list,function="2d",show=False, show_rgb=False, idx_t
 
         indexes.append(image_indexes)
         guesses.append(image_guesses)
-    
-    cut_guesses = []
-    cut_indexes = []
-    for g, i in zip(guesses,indexes):
-        if idx_to_see != None:
-            idx_to_slice = np.in1d(np.array(i),np.array(idx_to_see))
-            cut_guesses.append(np.array(g)[idx_to_slice])
-            cut_indexes.append(np.array(i)[idx_to_slice])
 
     if show_rgb == True:
         plot_guesses(guesses, indexes, idx_to_see)
+
+    return guesses, indexes
+
+def ext_indexes(guesses, tag_indxes, inds):
+    
+    cut_guesses = []
+    cut_indexes = []
+    for g, i in zip(guesses,tag_indxes):
+        if inds != None:
+            idx_to_slice = np.in1d(np.array(i),np.array(inds))
+            cut_guesses.append(np.array(g)[idx_to_slice])
+            cut_indexes.append(np.array(i)[idx_to_slice])
 
     all_rgbs = []
 
@@ -130,7 +130,7 @@ def extract_tags_from(image_list,function="2d",show=False, show_rgb=False, idx_t
 
     return cut_guesses, cut_indexes, np.array(all_rgbs)
 
-def plot_guesses(guesses, indexes, idxs,ax=None):
+def plot_guesses(guesses, indexes,ax=None):
     if ax == None:
         plt.figure(figsize=(10,10))
         ax = plt.axes(projection='3d')
@@ -147,11 +147,5 @@ def plot_guesses(guesses, indexes, idxs,ax=None):
    
         for label, rgb in zip(index,rgbs):
             (x,y,z) = rgb
-            if idxs != None:
-                if label in idxs:
-                    #ax.scatter(x,y,z,color=rgb,s=50)
-                    ax.text(x+0.01,y+0.01,z+0.01,label)
-            else:
-                #ax.scatter(x,y,z,color=rgb,s=50)
-                ax.text(x+0.01,y+0.01,z+0.01,label)
+            ax.text(x+0.01,y+0.01,z+0.01,label)
  
