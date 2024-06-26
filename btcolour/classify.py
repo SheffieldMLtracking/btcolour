@@ -3,7 +3,7 @@ import btcolour.fit
 import numpy as np
 import matplotlib.pyplot as plt
 import os.path
-from sklearn.cluster import KMeans
+from sklearn.neighbors import KNeighborsRegressor
 
 def classify():
     return None
@@ -41,7 +41,7 @@ def to_json_list(img_path_list):
 
 def cluster(guesses,tag_i,rgbs,k):
 
-    k_means = KMeans(k)
+    k_means = KNeighborsRegressor(k)
     k_means.fit(rgbs)
 
     fig = plt.figure(figsize=(12,12))
@@ -106,7 +106,7 @@ def extract_tags_from(image_list,function="2d",show=False, show_rgb=False, idx_t
         guesses.append(image_guesses)
 
     if show_rgb == True:
-        plot_guesses(guesses, indexes, idx_to_see)
+        plot_guesses(guesses, indexes, i = idx_to_see)
 
     return guesses, indexes
 
@@ -121,16 +121,18 @@ def ext_indexes(guesses, tag_indxes, inds):
             cut_indexes.append(np.array(i)[idx_to_slice])
 
     all_rgbs = []
+    all_indexes = []
 
     for guess, index in zip(cut_guesses, cut_indexes):
         rgbs = [[i[3],i[4],i[5]] for i in guess]
         rgbs = norm_rgbs(rgbs)
-        for rgb in rgbs:
+        for rgb, i in zip(rgbs, index):
             all_rgbs.append(rgb)
+            all_indexes.append(i)
 
-    return cut_guesses, cut_indexes, np.array(all_rgbs)
+    return cut_guesses, cut_indexes, np.array(all_rgbs), np.array(all_indexes)
 
-def plot_guesses(guesses, indexes,ax=None):
+def plot_guesses(guesses, indexes,ax=None, i=None):
     if ax == None:
         plt.figure(figsize=(10,10))
         ax = plt.axes(projection='3d')
@@ -144,16 +146,21 @@ def plot_guesses(guesses, indexes,ax=None):
         rgbs = norm_rgbs(rgbs)
    
         for label, rgb in zip(index,rgbs):
-            (x,y,z) = rgb
-            ax.scatter(x,y,z,color=(x,y,z),s=100)
-            #ax.text(x+0.01,y+0.01,z+0.01,label)
+            if i is not None and label in i:
+                (x,y,z) = rgb
+                ax.scatter(x,y,z,color=(x,y,z),s=100)
+                ax.text(x+0.01,y+0.01,z+0.01,label)
+            elif i is None:
+                (x,y,z) = rgb
+                ax.scatter(x,y,z,color=(x,y,z),s=100)
+                ax.text(x+0.01,y+0.01,z+0.01,label)
 
 def best_tag_groups(guesses, indexes):
     stds = []
     means = []
 
     for i in range(40):
-        _, _, rgbs = ext_indexes(guesses,indexes,[i])
+        _, _, rgbs, _ = ext_indexes(guesses,indexes,[i])
         stds.append(np.std(rgbs))
         means.append(np.mean(rgbs,axis=0))
 
