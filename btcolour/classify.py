@@ -39,22 +39,20 @@ def to_json_list(img_path_list):
         jsons.append(json_name)
     return jsons
 
-def cluster(guesses,tag_i,rgbs,k):
-
-    k_means = KNeighborsRegressor(k)
-    k_means.fit(rgbs)
-
-    fig = plt.figure(figsize=(12,12))
-    ax = plt.axes(projection='3d')
-    ax.set_xlabel("R")
-    ax.set_ylabel("G")
-    ax.set_zlabel("B")
-    plot_guesses(guesses,tag_i,ax=ax)
-
-    ax.scatter(rgbs[:,0],rgbs[:,1],rgbs[:,2],c=k_means.labels_,s=300)
+def train():
+    #TODO
+    pass
 
 
 def extract_tags_from(image_list,function="2d",show=False, show_rgb=False, idx_to_see=None):
+    '''
+    Takes a list of .np image files and extracts the tags from the files
+    Then uses the function to fit and guess the tag's colour, height.etc
+    
+    # Returns
+    Guesses - List of successfully fitted guesses
+    Indexes - List of tag indexes for the image (order in the json file, requires all images to be labelled in the same order)
+    '''
     json_list = to_json_list(image_list)
     count = 0
     fig, axs = plt.subplots(3,4)
@@ -111,7 +109,17 @@ def extract_tags_from(image_list,function="2d",show=False, show_rgb=False, idx_t
     return guesses, indexes
 
 def ext_indexes(guesses, tag_indxes, inds):
-    
+    '''
+    Extract specific tags from a list of guesses and indexes
+    Assumes all images are labelled in the same way 
+    For this data set, the top left is 0, top right is 6 and bottom right is 39
+
+    #Returns
+    cut_guesses -
+    cut_indexes -
+    all_rgbs - extracted, normalised rgbs
+    all_indexes - tag indexes matching the rgbs
+    '''
     cut_guesses = []
     cut_indexes = []
     for g, i in zip(guesses,tag_indxes):
