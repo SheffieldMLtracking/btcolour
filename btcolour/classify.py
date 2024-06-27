@@ -3,7 +3,7 @@ import btcolour.fit
 import numpy as np
 import matplotlib.pyplot as plt
 import os.path
-from sklearn.neighbors import KNeighborsRegressor
+from sklearn.neighbors import KNeighborsClassifier
 
 def classify():
     return None
@@ -39,10 +39,16 @@ def to_json_list(img_path_list):
         jsons.append(json_name)
     return jsons
 
-def train():
-    #TODO
-    pass
+def train(rgbs, labels, k=3):
+    """
+    Takes in an array of rgb values as the x_data and array of corressponding tag ids(labels) as y_data
+    Returns a K-nn classifier
+    """
+    k_neighbours = KNeighborsClassifier(n_neighbors=k)
+    print(rgbs[0])
+    k_neighbours.fit(rgbs, labels)
 
+    return k_neighbours
 
 def extract_tags_from(image_list,function="2d",show=False, show_rgb=False, idx_to_see=None):
     '''
