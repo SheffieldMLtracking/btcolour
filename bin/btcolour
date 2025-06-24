@@ -64,40 +64,93 @@ def get_tag_colour(tag,debugimgfn=None):
     Returns RGB tuple TODO !!! Confirm ORDER OF R G B!!!
     #we end up with 2x more green, but this is just for finding the tag etc, so not a big deal    
     """
-    offsetshift = 16
-    offsetshiftb = 10 #this is the patch around the bright spot that we will be averaging.
+    offsetshift = 0 #we crop the edge of the image and only look for the tag in the middle square
+    offsetshiftb = 3 #this is the patch around the bright spot that we will be averaging.
     
     
-    temptag = tag[16:-16,16:-16].copy() #we make this to just find the brightest point - and want one in the middle of the tag image!!!
-
+    debug_get_edge_brightness_img = tag.copy()
+    debug_get_edge_brightness_img[8:-8,8:-8] = 0
+    debug_get_edge_brightness_img[debug_get_edge_brightness_img<0]=0
+    
+    if offsetshift>0:
+        temptag = tag[offsetshift:-offsetshift,offsetshift:-offsetshift].copy() #we make this to just find the brightest point - and want one in the middle of the tag image!!!
+    else:
+        temptag = tag.copy()
     
     greytag = np.mean(temptag.reshape(temptag.shape[0]//2,2,temptag.shape[1]//2,2),axis=(1,3))
+    #quickly blur a little
+    greytag[:-1,:]+=greytag[1:,:]
+    greytag[:,:-1]+=greytag[:,1:]
+    greytag[1:,:]+=greytag[:-1,:]
+    greytag[:,1:]+=greytag[:,:-1]    
+    #just finds the coord of the brightest point
+    coords = np.array(np.unravel_index(greytag.argmax(),greytag.shape))
     
-    coords = np.array(np.unravel_index(greytag.argmax(),greytag.shape))*2+offsetshift
+    #This instead looks in a 5x5 square around this brightest point, picks out the pixels that are >80% of the brightest, and puts the coords in the middle of those
+    #greytagchunk = greytag[fullcoords[0]-10:fullcoords[0]+10,fullcoords[1]-10:fullcoords[1]+10]
+    #looks at 
+    #try:
+    #    chunkcoords = np.array([(np.min(l)+np.max(l))/2 for l in np.where(greytagchunk>np.max(greytag)*0.2)]).astype(int)
+    #    print(fullcoords, chunkcoords)
+    #    coords = fullcoords - 5 + chunkcoords
+    #    
+    #except:
+    #    coords = fullcoords
+    #coords = fullcoords        
+    #print(greytagchunk)
+    #print(greytagchunk>np.max(greytag)*0.2)
+    #[print(np.min(l),np.max(l)) for l in np.where(greytagchunk>np.max(greytag)*0.2)]
+    
+
+    print(coords)
+
+    
+    coords=coords*2+offsetshift
+
     
     #we use this to compute the average of the colours.
     temptag = tag[coords[0]-offsetshiftb:coords[0]+offsetshiftb,coords[1]-offsetshiftb:coords[1]+offsetshiftb]
-    temptag[:-1,:][temptag[1:,:]<6]=np.nan
-    temptag[:,:-1][temptag[:,1:]<6]=np.nan
-    temptag[temptag<6]=np.nan #ignore dim pixels!! [these are probably surrounding the tag]
+    temptag[:-1,:][temptag[1:,:]<0]=np.nan
+    temptag[:,:-1][temptag[:,1:]<0]=np.nan
+    temptag[temptag<0]=np.nan #ignore dim pixels!! [these are probably surrounding the tag]
+    
 
-    if np.sum(np.isnan(temptag))<25: return None #failed to decode colour
     rgb = np.array([np.nanmean(temptag[::2,::2]),(np.nanmean(temptag[1::2,::2])+np.nanmean(temptag[::2,1::2]))/2,np.nanmean(temptag[1::2,1::2])])
-    rgb/=np.sum(rgb)
-    rgb*=255
-    if np.any(np.isnan(rgb)): return None
-    rgb = tuple(rgb)
+
+    #rgb/=np.sum(rgb)
+    #rgb*=255
+    print(rgb)
+    debugmsg = ""
+    if np.any(np.isnan(rgb)): 
+        print("Failed to compute RGB due to low values...")
+        debugmsg += "\nFailed to compute RGB due to low values. "
+        rgb = None
+    else:
+        rgb = tuple(rgb)        
+        if np.sum(~np.isnan(temptag))<25:
+            debugmsg += "\nInsufficient NAN pixels"
+            rgb = None #failed to decode colour
+    
     if debugimgfn is not None:
         plt.figure()
-        plt.subplot(1,2,1)
+        plt.subplot(1,3,1)
         plt.imshow(tag)
         plt.colorbar()
-        plt.subplot(1,2,2)
+        plt.subplot(1,3,2)
         plt.imshow(temptag)
         plt.colorbar()
-        plt.title(str(coords)+",".join(["%0.0f " % c for c in rgb]))
+        if rgb is not None:
+            rgbstring = ",".join(["%0.0f " % c for c in rgb])
+        else:
+            rgbstring = "FAILED"
+        plt.title(str(coords)+rgbstring+':%0.2f' % np.nanmean(debug_get_edge_brightness_img)+"["+debugmsg+"]")
         print("Saving debug image to %s" % debugimgfn)
+        plt.subplot(1,3,3)
+        plt.imshow(greytag)
+        
+        
         plt.savefig(debugimgfn)
+    
     return rgb
 
 def get_patch_colour_data(photo_item, jsondata, averagefullimage,debugimgfn=None):
@@ -112,7 +165,8 @@ def get_patch_colour_data(photo_item, jsondata, averagefullimage,debugimgfn=None
         y = p['y']
         #Only include patches that are near markers provided by jsondata.
         dists = np.sum((np.array([x,y])-np.array([[d['x'],d['y']] for d in jsondata]))**2,1)
-        if np.all(dists>25): continue
+        print(dists)
+        if np.all(dists>15**2): continue
                 
         ps = p['raw_patch'].shape[0]//2
         patchbg = averagefullimage[y-ps:y+ps,x-ps:x+ps].astype(float)
